@@ -87,7 +87,10 @@ class SuperRBF_SFM_OCC:
             pred -= self.przesuniecie
 
             # jesli wartosc pred jest wieksza od 0 do listy y_pred dodawana jest wartosc 1
-            y_pred.append(pred > 0)
+            # jesli wartosc pred jest wieksza od 0 do listy y_pred dodawana jest wartosc 1
+            if pred > 0:
+                y_pred.append(True)
+            else: y_pred.append(False)
 
 
         return np.array(y_pred)
