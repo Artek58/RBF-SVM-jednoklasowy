@@ -56,7 +56,7 @@ class SuperRBF_SFM_OCC:
         # Liczba wektorow nosnych
         n_wektor_nosne = len(self.wektory_nosne)
 
-        # macierz zerowa o wymiarach liczby wektorow nosnych
+        # wektor zerowy o wymiarach liczby wektorow nosnych
         # https://stats.stackexchange.com/questions/592273/how-to-understand-the-dual-coef-parameter-in-sklearns-kernel-svm
         self.dual_coef = np.zeros(n_wektor_nosne)
 
