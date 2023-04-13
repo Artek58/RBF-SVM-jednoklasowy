@@ -5,7 +5,10 @@ from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 
 
-class SuperRBF_SFM_OCC:
+
+class RBF_SFM_OCC:
+
+
     def __init__(self, gamma=1, nu=0.1):
         self.gamma = gamma
         self.nu = nu
@@ -56,7 +59,9 @@ class SuperRBF_SFM_OCC:
         # Liczba wektorow nosnych
         n_wektor_nosne = len(self.wektory_nosne)
 
+
         # wektor zerowy o wymiarach liczby wektorow nosnych
+
         # https://stats.stackexchange.com/questions/592273/how-to-understand-the-dual-coef-parameter-in-sklearns-kernel-svm
         self.dual_coef = np.zeros(n_wektor_nosne)
 
@@ -87,11 +92,11 @@ class SuperRBF_SFM_OCC:
             pred -= self.przesuniecie
 
             # jesli wartosc pred jest wieksza od 0 do listy y_pred dodawana jest wartosc 1
+
             # jesli wartosc pred jest wieksza od 0 do listy y_pred dodawana jest wartosc 1
             if pred > 0:
                 y_pred.append(True)
             else: y_pred.append(False)
-
 
         return np.array(y_pred)
 
@@ -137,7 +142,9 @@ ax[2].set_ylim(-1.2, 1.2)
 plt.show()
 
 # użycie metody
-svm = SuperRBF_SFM_OCC(gamma=1, nu=0.1)
+
+svm = RBF_SFM_OCC(gamma=1, nu=0.1)
+
 svm.fit(X_train)
 y_pred = svm.predict(X_test)
 
@@ -148,4 +155,6 @@ accuracy = accuracy_score(y_test, y_pred)
 print("y_train",y_train)
 print("y_test",y_test)
 print("y_pred",y_pred)
+
 print("accuracy: ",accuracy)
+
