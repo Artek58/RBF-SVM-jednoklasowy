@@ -5,7 +5,7 @@ from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 
 
-class Mega_RBF_SFM_OCC:
+class RBF_SFM_OCC:
     def __init__(self, gamma=1, nu=0.1):
         self.gamma = gamma
         self.nu = nu
@@ -136,7 +136,7 @@ ax[2].set_ylim(-1.2, 1.2)
 plt.show()
 
 # użycie metody
-svm = Mega_RBF_SFM_OCC(gamma=1, nu=0.1)
+svm = RBF_SFM_OCC(gamma=1, nu=0.1)
 svm.fit(X_train)
 y_pred = svm.predict(X_test)
 
