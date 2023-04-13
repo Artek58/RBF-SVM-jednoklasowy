@@ -1,24 +1,28 @@
+import arff
 import numpy as np
 from matplotlib import pyplot as plt
+from sklearn import datasets
 from sklearn.datasets import make_circles
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
-
+import pandas as pd
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 
 
 class RBF_SFM_OCC:
 
 
-    def __init__(self, gamma=1, nu=0.1):
+    def __init__(self, gamma=1):
         self.gamma = gamma
-        self.nu = nu
         self.wektory_nosne = None
         self.przesuniecie = None
 
     def fit(self, X):
 
         # zapisanie liczby probek do zmiennej
-        n_probek = X.shape[0]
+        n_probek = X_train.shape[0]
+
 
         # stworzenie  macierzy zer, która posłuży do zapisywania ogległości między próbkami
         macierz_odleglosci = np.zeros((n_probek, n_probek))
@@ -33,26 +37,11 @@ class RBF_SFM_OCC:
         # funkcja jądra RBF https://www.pycodemates.com/2022/10/the-rbf-kernel-in-svm-complete-guide.html
         macierz_funkcji_rbf = np.exp(-self.gamma * macierz_odleglosci)
 
-        # wektory nosne, deklaracja
+
+        # wektory nosne
         self.wektory_nosne = []
-
-        # wyczytałem, że to polega na tym, że się szuka wartosci w rzędach wiekszych niż wartość nu
         for i in range(n_probek):
-
-            #sprawdzanie wierszy; ustawienie poocniczej zmiennej wektor_nosne
-            czy_wektor_nosne = True
-
-            #sprawdzanie kazdej kolumny czy jest tam wartosc < niz nu
-            for j in range(n_probek):
-                if macierz_funkcji_rbf[i][j] < self.nu:
-                    czy_wektor_nosne = False
-                    break
-
-            # jak nie znaleziono wartosci mniejszej to wektor_nosne == True i wtedy dodaje go sie do wektory_nosne
-            # jakby znaleziono wartosc mniejszą to wektor_nosne == False i nie zostanie dodany wektor nosne
-            if czy_wektor_nosne == True:
-                self.wektory_nosne.append(X[i])
-
+            self.wektory_nosne.append(X[i])
 
 
 
@@ -65,13 +54,17 @@ class RBF_SFM_OCC:
         # https://stats.stackexchange.com/questions/592273/how-to-understand-the-dual-coef-parameter-in-sklearns-kernel-svm
         self.dual_coef = np.zeros(n_wektor_nosne)
 
+
         # w macierzy wektorów nośych dla kazdego wiersza dodajemy wszystkie kolumny ze soba
         for i in range(n_wektor_nosne):
             for j in range(n_wektor_nosne):
                 self.dual_coef[i] += macierz_funkcji_rbf[i][j]
 
         # obliczanie wartosci przesuniecia miedzy macierza funkcji rbf i macierza dual_coef i obliczenie sredniej
+        print(self.dual_coef.shape, "oraz", macierz_funkcji_rbf.shape)
         self.przesuniecie = np.mean(np.dot(self.dual_coef, macierz_funkcji_rbf))
+
+
 
 
     def predict(self, X):
@@ -91,7 +84,6 @@ class RBF_SFM_OCC:
             # wartosc pred jest korygowana o przesuniecie
             pred -= self.przesuniecie
 
-            # jesli wartosc pred jest wieksza od 0 do listy y_pred dodawana jest wartosc 1
 
             # jesli wartosc pred jest wieksza od 0 do listy y_pred dodawana jest wartosc 1
             if pred > 0:
@@ -99,6 +91,89 @@ class RBF_SFM_OCC:
             else: y_pred.append(False)
 
         return np.array(y_pred)
+
+
+# iris = datasets.load_iris(as_frame=True)
+#
+# #Pobranie wartosci o dlugosci i szerokosci
+# X = iris.data[["petal length (cm)", "petal width (cm)"]].values
+#
+# #Pobranie informacji o gatunkach irysów (jest 3 gatunki)
+# y = iris.target
+# #print(y.values)
+#
+# #Wybranie tylko gatunków 0 i 1, odrzucenie gatunku 2
+# setosa_or_versicolor = (y == 0) | (y == 1)
+# X = X[setosa_or_versicolor]
+# y = y[setosa_or_versicolor]
+#
+# scaler = StandardScaler()
+# scaler.fit(X)
+# X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=1)
+# X = scaler.transform(X)
+# X_train = X_train[y_train == 1]
+# y_train = y_train[y_train == 1]
+#
+#
+#
+# svm = RBF_SFM_OCC(gamma=1)
+# svm.fit(X_train)
+# y_pred = svm.predict(X_test)
+#
+# #accuracy score
+# accuracy = accuracy_score(y_test, y_pred)
+#  #wyswietlenie zbiorów i dokłądności na potrzeby testów
+# print("y_train",y_train)
+# print("y_test",y_test)
+# print("y_pred",y_pred)
+# #
+# print("accuracy: ",accuracy)
+#
+# from scipy.io import arff
+# #
+# # odczytanie arff
+# data = arff.loadarff('caesarian.csv.arff')
+#
+# # pandas dataframe
+# df = pd.DataFrame(data[0])
+# # dekodowanie
+# for kolumna in df.columns:
+#     df[kolumna] = df[kolumna].str.decode('utf-8')
+#
+# X = df.iloc[:, 0:-1]
+# y = df.iloc[:, -1]
+#
+# X = X.to_numpy().astype(np.float64)
+# y = y.to_numpy().astype(np.float64)
+#
+#
+# # scaler = StandardScaler()
+# # X = scaler.fit_transform(X)
+#
+#
+#
+#
+# X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=1)
+# X_train = X_train[y_train == 1]
+# y_train = y_train[y_train == 1]
+#
+#
+# svm = RBF_SFM_OCC(gamma=1)
+# svm.fit(X_train)
+#
+#
+# y_pred = svm.predict(X_test)
+#
+# #accuracy score
+# accuracy = accuracy_score(y_test, y_pred)
+#
+#  # wyswietlenie zbiorów i dokłądności na potrzeby testów
+# print("y_train",y_train)
+# print("y_test",y_test)
+# print("y_pred",y_pred)
+# #
+# print("accuracy: ",accuracy)
+
 
 
 
@@ -143,7 +218,7 @@ plt.show()
 
 # użycie metody
 
-svm = RBF_SFM_OCC(gamma=1, nu=0.1)
+svm = RBF_SFM_OCC(gamma=1)
 
 svm.fit(X_train)
 y_pred = svm.predict(X_test)
@@ -157,4 +232,3 @@ print("y_test",y_test)
 print("y_pred",y_pred)
 
 print("accuracy: ",accuracy)
-
