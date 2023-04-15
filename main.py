@@ -4,7 +4,9 @@ from matplotlib import pyplot as plt
 from sklearn import datasets
 from sklearn.datasets import make_circles
 from sklearn.metrics import accuracy_score
+
 from sklearn.model_selection import train_test_split, RepeatedStratifiedKFold
+
 import pandas as pd
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
@@ -13,16 +15,16 @@ from sklearn.preprocessing import StandardScaler
 class RBF_SFM_OCC:
 
 
-    def __init__(self, gamma=1, nu=0.1):
+    def __init__(self, gamma=1):
         self.gamma = gamma
-        self.nu = nu
         self.wektory_nosne = None
         self.przesuniecie = None
 
     def fit(self, X):
 
         # zapisanie liczby probek do zmiennej
-        n_probek = X.shape[0]
+        n_probek = X_train.shape[0]
+
 
 
         # stworzenie  macierzy zer, która posłuży do zapisywania ogległości między próbkami
@@ -41,6 +43,7 @@ class RBF_SFM_OCC:
 
         # wektory nosne, deklaracja
         self.wektory_nosne = []
+
 
         for i in range(n_probek):
             self.wektory_nosne.append(X[i])
@@ -91,6 +94,7 @@ class RBF_SFM_OCC:
             else: y_pred.append(False)
 
         return np.array(y_pred)
+
 
 
 iris = datasets.load_iris(as_frame=True)
@@ -198,3 +202,59 @@ np.savetxt(plik, wyniki, delimiter=",", header=header, fmt=["%.1f", "%.1f", "%.1
 # print("y_test",y_test)
 # print("y_pred",y_pred)
 # print("accuracy: ",accuracy)
+=======
+# zbiór test
+X, y = make_circles(1000, factor=.1, noise=.1)
+
+# Tworzenie wykresu dla zbioru testowego
+fig, ax = plt.subplots(1, 3, figsize=(15,5))
+
+# pierwsza fig
+ax[0].scatter(X[:,0], X[:,1], c=y)
+ax[0].set_xlabel("X")
+ax[0].set_ylabel("Y")
+ax[0].set_title("Zbiór - dwie klasy")
+ax[0].set_xlim(-1.2, 1.2)
+ax[0].set_ylim(-1.2, 1.2)
+
+# podział na test i train
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=1)
+
+# wywalenie z X_train i Y_train klasy "0", żeby nauczyć zbiór na klasie = "1"
+X_train = X_train[y_train == 1]
+y_train = y_train[y_train == 1]
+
+# zbior treningowy
+ax[1].scatter(X_train[:,0], X_train[:,1], c=y_train)
+ax[1].set_xlabel("X_train[:,0]")
+ax[1].set_ylabel("X_train[:,1]")
+ax[1].set_title("Zbiór treningowy")
+ax[1].set_xlim(-1.2, 1.2)
+ax[1].set_ylim(-1.2, 1.2)
+
+# zbior testowy
+ax[2].scatter(X_test[:,0], X_test[:,1], c=y_test)
+ax[2].set_xlabel("X_test[:,0]")
+ax[2].set_ylabel("X_test[:,1]")
+ax[2].set_title("Zbiór testowy")
+ax[2].set_xlim(-1.2, 1.2)
+ax[2].set_ylim(-1.2, 1.2)
+plt.show()
+
+# użycie metody
+
+svm = RBF_SFM_OCC(gamma=1)
+
+svm.fit(X_train)
+y_pred = svm.predict(X_test)
+
+# accuracy score
+accuracy = accuracy_score(y_test, y_pred)
+
+# wyswietlenie zbiorów i dokłądności na potrzeby testów
+print("y_train",y_train)
+print("y_test",y_test)
+print("y_pred",y_pred)
+
+print("accuracy: ",accuracy)
+
