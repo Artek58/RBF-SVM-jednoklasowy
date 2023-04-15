@@ -147,7 +147,6 @@ for i in gamma:
 
 plik = "wyniki.csv"
 with open(plik, 'w') as pliczek:
-    # write each string to the file, followed by a newline character
     for linia in podsumaowanieWynik:
         pliczek.write(linia + '\n')
 
