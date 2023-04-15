@@ -1,15 +1,9 @@
-import arff
 import numpy as np
 from matplotlib import pyplot as plt
 from sklearn import datasets
 from sklearn.datasets import make_circles
 from sklearn.metrics import accuracy_score
-
 from sklearn.model_selection import train_test_split, RepeatedStratifiedKFold
-
-import pandas as pd
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
 
 
 class RBF_SFM_OCC:
@@ -96,7 +90,6 @@ class RBF_SFM_OCC:
         return np.array(y_pred)
 
 
-
 iris = datasets.load_iris(as_frame=True)
 
 #Pobranie wartosci
@@ -111,46 +104,52 @@ X = X[setosa_i_versicolor]
 y = y[setosa_i_versicolor]
 
 # walidacja 5 na 2
-rskf = RepeatedStratifiedKFold(n_splits=2, n_repeats=5, random_state=100)
+rskf = RepeatedStratifiedKFold(n_splits=2, n_repeats=5, random_state=1)
+
+gamma = [0.00001,0.0001,0.001,0.01,0.1, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+podsumaowanieWynik = []
 
 #Wyniki accuracy
-wynik = []
+wynikWlasny = []
+for i in gamma:
 
-for i, (train_index, test_index) in enumerate(rskf.split(X, y)):
+    for train_index, test_index in rskf.split(X, y):
 
-    #trenowanie tylko na klasie ==1
-    train_index_1 = train_index[y[train_index] == 1]
+        #trenowanie tylko na klasie ==1
+        train_index_1 = train_index[y[train_index] == 1]
 
-    # pomoc <- wyswietlanie zbiorów uczacych i testowych
-    # print("X[train_index_1]",X[train_index_1],"y[train_index_1]", y[train_index_1])
-    # print("X[test_index]", X[test_index], "y[test_index]", y[test_index])
+        # pomoc <- wyswietlanie zbiorów uczacych i testowych
+        # print("X[train_index_1]",X[train_index_1],"y[train_index_1]", y[train_index_1])
+        # print("X[test_index]", X[test_index], "y[test_index]", y[test_index])
 
-    clf = RBF_SFM_OCC(gamma=1)
-    clf.fit(X[train_index_1])
-    y_pred = clf.predict(X[test_index])
+        clf = RBF_SFM_OCC(gamma=i)
+        clf.fit(X[train_index_1])
+        y_pred = clf.predict(X[test_index])
 
-    #pobranie wartosci do zapisania do pliku
-    if i == 0:
-        X_testy = X[test_index]
-        y_oryginal = y[test_index]
-        y_predykcja = y_pred
-    else:
-        X_testy = np.concatenate((X_testy, X[test_index]))
-        y_oryginal = np.concatenate((y_oryginal, y_pred))
-        y_predykcja = np.concatenate((y_predykcja, y_pred))
+        #zapisywanie accuracy
+        wynikWlasny.append(accuracy_score(y[test_index], y_pred))
+    wynik="Wynik (wlasny algorytm): Gamma=",i,"Mean(%.3f)" %np.mean(wynikWlasny),"Std(%.3f)"%np.std(wynikWlasny)
 
-    #zapisywanie accuracy
-    wynik.append(accuracy_score(y[test_index], y_pred))
+    podsumaowanieWynik.append(str(wynik))
 
-print("Wyniki: Mean(%.3f)" %np.mean(wynik),"Std(%.3f)"%np.std(wynik))
 
-#zapis do pliku
-wyniki = np.column_stack((X_testy, y_oryginal, y_predykcja))
+    wynikSklearn = []
+    for train_index, test_index in rskf.split(X, y):
+
+        clf = OneClassSVM(gamma=i)
+        clf.fit(X[train_index])
+        y_pred = clf.predict(X[test_index])
+
+        #zapisywanie accuracy
+        wynikSklearn.append(accuracy_score(y[test_index], y_pred))
+    wynik = "Wynik (sklearn): Gamma=",i,"Mean(%.3f)" %np.mean(wynikSklearn),"Std(%.3f)"%np.std(wynikSklearn)
+    podsumaowanieWynik.append(str(wynik))
+
 plik = "wyniki.csv"
-header="sepal length (cm), sepal width (cm), petal length (cm), petal width (cm), y_test, y_pred"
-np.savetxt(plik, wyniki, delimiter=",", header=header, fmt=["%.1f", "%.1f", "%.1f", "%.1f", "%d", "%d"])
-
-
+with open(plik, 'w') as pliczek:
+    # write each string to the file, followed by a newline character
+    for linia in podsumaowanieWynik:
+        pliczek.write(linia + '\n')
 
 
 # # zbiór testowy syntetyczny
@@ -202,59 +201,3 @@ np.savetxt(plik, wyniki, delimiter=",", header=header, fmt=["%.1f", "%.1f", "%.1
 # print("y_test",y_test)
 # print("y_pred",y_pred)
 # print("accuracy: ",accuracy)
-=======
-# zbiór test
-X, y = make_circles(1000, factor=.1, noise=.1)
-
-# Tworzenie wykresu dla zbioru testowego
-fig, ax = plt.subplots(1, 3, figsize=(15,5))
-
-# pierwsza fig
-ax[0].scatter(X[:,0], X[:,1], c=y)
-ax[0].set_xlabel("X")
-ax[0].set_ylabel("Y")
-ax[0].set_title("Zbiór - dwie klasy")
-ax[0].set_xlim(-1.2, 1.2)
-ax[0].set_ylim(-1.2, 1.2)
-
-# podział na test i train
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=1)
-
-# wywalenie z X_train i Y_train klasy "0", żeby nauczyć zbiór na klasie = "1"
-X_train = X_train[y_train == 1]
-y_train = y_train[y_train == 1]
-
-# zbior treningowy
-ax[1].scatter(X_train[:,0], X_train[:,1], c=y_train)
-ax[1].set_xlabel("X_train[:,0]")
-ax[1].set_ylabel("X_train[:,1]")
-ax[1].set_title("Zbiór treningowy")
-ax[1].set_xlim(-1.2, 1.2)
-ax[1].set_ylim(-1.2, 1.2)
-
-# zbior testowy
-ax[2].scatter(X_test[:,0], X_test[:,1], c=y_test)
-ax[2].set_xlabel("X_test[:,0]")
-ax[2].set_ylabel("X_test[:,1]")
-ax[2].set_title("Zbiór testowy")
-ax[2].set_xlim(-1.2, 1.2)
-ax[2].set_ylim(-1.2, 1.2)
-plt.show()
-
-# użycie metody
-
-svm = RBF_SFM_OCC(gamma=1)
-
-svm.fit(X_train)
-y_pred = svm.predict(X_test)
-
-# accuracy score
-accuracy = accuracy_score(y_test, y_pred)
-
-# wyswietlenie zbiorów i dokłądności na potrzeby testów
-print("y_train",y_train)
-print("y_test",y_test)
-print("y_pred",y_pred)
-
-print("accuracy: ",accuracy)
-
