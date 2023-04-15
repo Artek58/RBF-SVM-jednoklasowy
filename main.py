@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 from sklearn import datasets
 from sklearn.datasets import make_circles
 from sklearn.metrics import accuracy_score
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, RepeatedStratifiedKFold
 import pandas as pd
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
@@ -13,15 +13,16 @@ from sklearn.preprocessing import StandardScaler
 class RBF_SFM_OCC:
 
 
-    def __init__(self, gamma=1):
+    def __init__(self, gamma=1, nu=0.1):
         self.gamma = gamma
+        self.nu = nu
         self.wektory_nosne = None
         self.przesuniecie = None
 
     def fit(self, X):
 
         # zapisanie liczby probek do zmiennej
-        n_probek = X_train.shape[0]
+        n_probek = X.shape[0]
 
 
         # stworzenie  macierzy zer, która posłuży do zapisywania ogległości między próbkami
@@ -38,12 +39,11 @@ class RBF_SFM_OCC:
         macierz_funkcji_rbf = np.exp(-self.gamma * macierz_odleglosci)
 
 
-        # wektory nosne
+        # wektory nosne, deklaracja
         self.wektory_nosne = []
+
         for i in range(n_probek):
             self.wektory_nosne.append(X[i])
-
-
 
         # Liczba wektorow nosnych
         n_wektor_nosne = len(self.wektory_nosne)
@@ -61,7 +61,7 @@ class RBF_SFM_OCC:
                 self.dual_coef[i] += macierz_funkcji_rbf[i][j]
 
         # obliczanie wartosci przesuniecia miedzy macierza funkcji rbf i macierza dual_coef i obliczenie sredniej
-        print(self.dual_coef.shape, "oraz", macierz_funkcji_rbf.shape)
+
         self.przesuniecie = np.mean(np.dot(self.dual_coef, macierz_funkcji_rbf))
 
 
@@ -93,142 +93,108 @@ class RBF_SFM_OCC:
         return np.array(y_pred)
 
 
-# iris = datasets.load_iris(as_frame=True)
+iris = datasets.load_iris(as_frame=True)
+
+#Pobranie wartosci
+X = iris.data.values
+
+#Pobranie informacji o gatunkach irysów (jest 3 gatunki)
+y = iris.target.values
+
+#Wybranie tylko gatunków 0 i 1, odrzucenie gatunku 2
+setosa_i_versicolor = (y == 0) | (y == 1)
+X = X[setosa_i_versicolor]
+y = y[setosa_i_versicolor]
+
+# walidacja 5 na 2
+rskf = RepeatedStratifiedKFold(n_splits=2, n_repeats=5, random_state=100)
+
+#Wyniki accuracy
+wynik = []
+
+for i, (train_index, test_index) in enumerate(rskf.split(X, y)):
+
+    #trenowanie tylko na klasie ==1
+    train_index_1 = train_index[y[train_index] == 1]
+
+    # pomoc <- wyswietlanie zbiorów uczacych i testowych
+    # print("X[train_index_1]",X[train_index_1],"y[train_index_1]", y[train_index_1])
+    # print("X[test_index]", X[test_index], "y[test_index]", y[test_index])
+
+    clf = RBF_SFM_OCC(gamma=1)
+    clf.fit(X[train_index_1])
+    y_pred = clf.predict(X[test_index])
+
+    #pobranie wartosci do zapisania do pliku
+    if i == 0:
+        X_testy = X[test_index]
+        y_oryginal = y[test_index]
+        y_predykcja = y_pred
+    else:
+        X_testy = np.concatenate((X_testy, X[test_index]))
+        y_oryginal = np.concatenate((y_oryginal, y_pred))
+        y_predykcja = np.concatenate((y_predykcja, y_pred))
+
+    #zapisywanie accuracy
+    wynik.append(accuracy_score(y[test_index], y_pred))
+
+print("Wyniki: Mean(%.3f)" %np.mean(wynik),"Std(%.3f)"%np.std(wynik))
+
+#zapis do pliku
+wyniki = np.column_stack((X_testy, y_oryginal, y_predykcja))
+plik = "wyniki.csv"
+header="sepal length (cm), sepal width (cm), petal length (cm), petal width (cm), y_test, y_pred"
+np.savetxt(plik, wyniki, delimiter=",", header=header, fmt=["%.1f", "%.1f", "%.1f", "%.1f", "%d", "%d"])
+
+
+
+
+# # zbiór testowy syntetyczny
+# X, y = make_circles(1000, factor=.1, noise=.1)
 #
-# #Pobranie wartosci o dlugosci i szerokosci
-# X = iris.data[["petal length (cm)", "petal width (cm)"]].values
+# # Tworzenie wykresu dla zbioru testowego
+# fig, ax = plt.subplots(1, 3, figsize=(15,5))
 #
-# #Pobranie informacji o gatunkach irysów (jest 3 gatunki)
-# y = iris.target
-# #print(y.values)
+# # pierwsza fig
+# ax[0].scatter(X[:,0], X[:,1], c=y)
+# ax[0].set_xlabel("X")
+# ax[0].set_ylabel("Y")
+# ax[0].set_title("Zbiór - dwie klasy")
+# ax[0].set_xlim(-1.2, 1.2)
+# ax[0].set_ylim(-1.2, 1.2)
 #
-# #Wybranie tylko gatunków 0 i 1, odrzucenie gatunku 2
-# setosa_or_versicolor = (y == 0) | (y == 1)
-# X = X[setosa_or_versicolor]
-# y = y[setosa_or_versicolor]
-#
-# scaler = StandardScaler()
-# scaler.fit(X)
+# # podział na test i train
 # X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=1)
-# X = scaler.transform(X)
+#
+# # wywalenie z X_train i Y_train klasy "0", żeby nauczyć zbiór na klasie = "1"
 # X_train = X_train[y_train == 1]
 # y_train = y_train[y_train == 1]
 #
+# # zbior treningowy
+# ax[1].scatter(X_train[:,0], X_train[:,1], c=y_train)
+# ax[1].set_xlabel("X_train[:,0]")
+# ax[1].set_ylabel("X_train[:,1]")
+# ax[1].set_title("Zbiór treningowy")
+# ax[1].set_xlim(-1.2, 1.2)
+# ax[1].set_ylim(-1.2, 1.2)
 #
+# # zbior testowy
+# ax[2].scatter(X_test[:,0], X_test[:,1], c=y_test)
+# ax[2].set_xlabel("X_test[:,0]")
+# ax[2].set_ylabel("X_test[:,1]")
+# ax[2].set_title("Zbiór testowy")
+# ax[2].set_xlim(-1.2, 1.2)
+# ax[2].set_ylim(-1.2, 1.2)
+# #plt.show()
 #
-# svm = RBF_SFM_OCC(gamma=1)
+# # użycie metody
+# svm = RBF_SFM_OCC(gamma=1, nu=0.1)
 # svm.fit(X_train)
 # y_pred = svm.predict(X_test)
-#
-# #accuracy score
 # accuracy = accuracy_score(y_test, y_pred)
-#  #wyswietlenie zbiorów i dokłądności na potrzeby testów
+#
+# # wyswietlenie zbiorów i dokłądności na potrzeby testów
 # print("y_train",y_train)
 # print("y_test",y_test)
 # print("y_pred",y_pred)
-# #
 # print("accuracy: ",accuracy)
-#
-# from scipy.io import arff
-# #
-# # odczytanie arff
-# data = arff.loadarff('caesarian.csv.arff')
-#
-# # pandas dataframe
-# df = pd.DataFrame(data[0])
-# # dekodowanie
-# for kolumna in df.columns:
-#     df[kolumna] = df[kolumna].str.decode('utf-8')
-#
-# X = df.iloc[:, 0:-1]
-# y = df.iloc[:, -1]
-#
-# X = X.to_numpy().astype(np.float64)
-# y = y.to_numpy().astype(np.float64)
-#
-#
-# # scaler = StandardScaler()
-# # X = scaler.fit_transform(X)
-#
-#
-#
-#
-# X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=1)
-# X_train = X_train[y_train == 1]
-# y_train = y_train[y_train == 1]
-#
-#
-# svm = RBF_SFM_OCC(gamma=1)
-# svm.fit(X_train)
-#
-#
-# y_pred = svm.predict(X_test)
-#
-# #accuracy score
-# accuracy = accuracy_score(y_test, y_pred)
-#
-#  # wyswietlenie zbiorów i dokłądności na potrzeby testów
-# print("y_train",y_train)
-# print("y_test",y_test)
-# print("y_pred",y_pred)
-# #
-# print("accuracy: ",accuracy)
-
-
-
-
-
-# zbiór test
-X, y = make_circles(1000, factor=.1, noise=.1)
-
-# Tworzenie wykresu dla zbioru testowego
-fig, ax = plt.subplots(1, 3, figsize=(15,5))
-
-# pierwsza fig
-ax[0].scatter(X[:,0], X[:,1], c=y)
-ax[0].set_xlabel("X")
-ax[0].set_ylabel("Y")
-ax[0].set_title("Zbiór - dwie klasy")
-ax[0].set_xlim(-1.2, 1.2)
-ax[0].set_ylim(-1.2, 1.2)
-
-# podział na test i train
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=1)
-
-# wywalenie z X_train i Y_train klasy "0", żeby nauczyć zbiór na klasie = "1"
-X_train = X_train[y_train == 1]
-y_train = y_train[y_train == 1]
-
-# zbior treningowy
-ax[1].scatter(X_train[:,0], X_train[:,1], c=y_train)
-ax[1].set_xlabel("X_train[:,0]")
-ax[1].set_ylabel("X_train[:,1]")
-ax[1].set_title("Zbiór treningowy")
-ax[1].set_xlim(-1.2, 1.2)
-ax[1].set_ylim(-1.2, 1.2)
-
-# zbior testowy
-ax[2].scatter(X_test[:,0], X_test[:,1], c=y_test)
-ax[2].set_xlabel("X_test[:,0]")
-ax[2].set_ylabel("X_test[:,1]")
-ax[2].set_title("Zbiór testowy")
-ax[2].set_xlim(-1.2, 1.2)
-ax[2].set_ylim(-1.2, 1.2)
-plt.show()
-
-# użycie metody
-
-svm = RBF_SFM_OCC(gamma=1)
-
-svm.fit(X_train)
-y_pred = svm.predict(X_test)
-
-# accuracy score
-accuracy = accuracy_score(y_test, y_pred)
-
-# wyswietlenie zbiorów i dokłądności na potrzeby testów
-print("y_train",y_train)
-print("y_test",y_test)
-print("y_pred",y_pred)
-
-print("accuracy: ",accuracy)
