@@ -92,13 +92,13 @@ class RBF_SFM_OCC:
 
 iris = datasets.load_iris(as_frame=True)
 
-#Pobranie wartosci
+# Pobranie wartosci
 X = iris.data.values
 
-#Pobranie informacji o gatunkach irysów (jest 3 gatunki)
+# Pobranie informacji o gatunkach irysów (jest 3 gatunki)
 y = iris.target.values
 
-#Wybranie tylko gatunków 0 i 1, odrzucenie gatunku 2
+# Wybranie tylko gatunków 0 i 1, odrzucenie gatunku 2
 setosa_i_versicolor = (y == 0) | (y == 1)
 X = X[setosa_i_versicolor]
 y = y[setosa_i_versicolor]
@@ -106,56 +106,71 @@ y = y[setosa_i_versicolor]
 # walidacja 5 na 2
 rskf = RepeatedStratifiedKFold(n_splits=2, n_repeats=5, random_state=1)
 
-gamma = [0.00001,0.0001,0.001,0.01,0.1, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-podsumaowanieWynik = []
+gammas = [0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 2, 3]
+wynikiWlasny = np.zeros(shape=[len(gammas), rskf.get_n_splits()])
+wynikiSklearn = np.zeros(shape=[len(gammas), rskf.get_n_splits()])
 
-#Wyniki accuracy
-wynikWlasny = []
-for i in gamma:
 
-    for train_index, test_index in rskf.split(X, y):
+# Wyniki accuracy
+for i,gamma in enumerate(gammas):
 
-        #trenowanie tylko na klasie ==1
+    for j, (train_index, test_index) in enumerate(rskf.split(X, y)):
+        # trenowanie tylko na klasie ==1
         train_index_1 = train_index[y[train_index] == 1]
-
-        # pomoc <- wyswietlanie zbiorów uczacych i testowych
-        # print("X[train_index_1]",X[train_index_1],"y[train_index_1]", y[train_index_1])
-        # print("X[test_index]", X[test_index], "y[test_index]", y[test_index])
-
-        clf = RBF_SFM_OCC(gamma=i)
+        clf = RBF_SFM_OCC(gamma=gamma)
         clf.fit(X[train_index_1])
         y_pred = clf.predict(X[test_index])
+        wynikiWlasny[i,j]=accuracy_score(y[test_index], y_pred)
 
-        #zapisywanie accuracy
-        wynikWlasny.append(accuracy_score(y[test_index], y_pred))
-    wynik="Wynik (wlasny algorytm): Gamma=",i,"Mean(%.3f)" %np.mean(wynikWlasny),"Std(%.3f)"%np.std(wynikWlasny)
-
-    podsumaowanieWynik.append(str(wynik))
-
-
-    wynikSklearn = []
-    for train_index, test_index in rskf.split(X, y):
-
-        clf = OneClassSVM(gamma=i)
+    for j, (train_index, test_index) in enumerate(rskf.split(X, y)):
+        clf = OneClassSVM(kernel='rbf', gamma=gamma)
         clf.fit(X[train_index])
         y_pred = clf.predict(X[test_index])
+        wynikiSklearn[i, j] = accuracy_score(y[test_index], y_pred)
 
-        #zapisywanie accuracy
-        wynikSklearn.append(accuracy_score(y[test_index], y_pred))
-    wynik = "Wynik (sklearn): Gamma=",i,"Mean(%.3f)" %np.mean(wynikSklearn),"Std(%.3f)"%np.std(wynikSklearn)
-    podsumaowanieWynik.append(str(wynik))
+
+meanWlasny = np.mean(wynikiWlasny, axis=1)
+stdWlasny = np.std(wynikiWlasny, axis=1, )
+meanSklearn = np.mean(wynikiSklearn, axis=1)
+stdSklearn = np.std(wynikiSklearn, axis=1)
+
+clfs = {
+"DTC": DecisionTreeClassifier(),
+"SVM_Linear": OneClassSVM(kernel="linear"),
+"SVM_Poly": OneClassSVM(kernel="poly")
+}
+
+scores = np.zeros((len(clfs), 2 * 5))
+
+for fold_id, (train_index, test_index) in enumerate(rskf.split(X, y)):
+    for clf_id, clf_name in enumerate(clfs):
+        clf = clfs[clf_name]
+        clf.fit(X[train_index], y[train_index])
+        y_pred = clf.predict(X[test_index])
+        scores[clf_id, fold_id] = accuracy_score(y[test_index], y_pred)
+
+mean_scores = np.mean(scores, axis=1)
+std_scores = np.std(scores, axis=1)
 
 plik = "wyniki.csv"
 with open(plik, 'w') as pliczek:
-    for linia in podsumaowanieWynik:
-        pliczek.write(linia + '\n')
-
+    pliczek.write("Gamma," + str(gammas) + '\n')
+    pliczek.write("Mean OneClassSVM-RBF(Wlasny)," + str(meanWlasny) + '\n')
+    pliczek.write("Std OneClassSVM-RBF(Wlasny)," + str(np.round(stdWlasny, 3)) + '\n')
+    pliczek.write("Mean OneClassSVM-RBF(Sklearn)," + str(meanSklearn) + '\n')
+    pliczek.write("Std OneClassSVM-RBF(Sklearn)," + str(np.round(stdSklearn, 3)) + '\n')
+    pliczek.write("Mean DTC(Sklearn)," + str(np.round(mean_scores[0], 3)) + '\n')
+    pliczek.write("Std DTC(Sklearn)," + str(np.round(std_scores[0], 3)) + '\n')
+    pliczek.write("Mean SVM_Linear(Sklearn)," + str(np.round(mean_scores[1], 3)) + '\n')
+    pliczek.write("Std SVM_Linear(Sklearn)," + str(np.round(std_scores[1], 3)) + '\n')
+    pliczek.write("Mean SVM_Poly(Sklearn)," + str(np.round(mean_scores[2], 3)) + '\n')
+    pliczek.write("Std SVM_Poly(Sklearn)," + str(np.round(std_scores[2], 3)) + '\n')
 
 # # zbiór testowy syntetyczny
 # X, y = make_circles(1000, factor=.1, noise=.1)
 #
 # # Tworzenie wykresu dla zbioru testowego
-# fig, ax = plt.subplots(1, 3, figsize=(15,5))
+# fig, ax = plt.subplots(1, 4, figsize=(20,5))
 #
 # # pierwsza fig
 # ax[0].scatter(X[:,0], X[:,1], c=y)
@@ -187,10 +202,11 @@ with open(plik, 'w') as pliczek:
 # ax[2].set_title("Zbiór testowy")
 # ax[2].set_xlim(-1.2, 1.2)
 # ax[2].set_ylim(-1.2, 1.2)
-# #plt.show()
+#
+# plt.show()
 #
 # # użycie metody
-# svm = RBF_SFM_OCC(gamma=1, nu=0.1)
+# svm = RBF_SFM_OCC(gamma=1)
 # svm.fit(X_train)
 # y_pred = svm.predict(X_test)
 # accuracy = accuracy_score(y_test, y_pred)
@@ -200,3 +216,4 @@ with open(plik, 'w') as pliczek:
 # print("y_test",y_test)
 # print("y_pred",y_pred)
 # print("accuracy: ",accuracy)
+
