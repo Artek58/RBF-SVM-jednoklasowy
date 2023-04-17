@@ -4,6 +4,8 @@ from sklearn import datasets
 from sklearn.datasets import make_circles
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split, RepeatedStratifiedKFold
+from sklearn.svm import OneClassSVM
+from sklearn.tree import DecisionTreeClassifier
 
 
 class RBF_SFM_OCC:
@@ -17,7 +19,7 @@ class RBF_SFM_OCC:
     def fit(self, X):
 
         # zapisanie liczby probek do zmiennej
-        n_probek = X_train.shape[0]
+        n_probek = X.shape[0]
 
 
 
