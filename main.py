@@ -1,11 +1,13 @@
 import numpy as np
 from matplotlib import pyplot as plt
+from scipy import stats
 from sklearn import datasets
 from sklearn.datasets import make_circles
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split, RepeatedStratifiedKFold
 from sklearn.svm import OneClassSVM
 from sklearn.tree import DecisionTreeClassifier
+from tabulate import tabulate
 
 
 class RBF_SFM_OCC:
@@ -20,8 +22,6 @@ class RBF_SFM_OCC:
 
         # zapisanie liczby probek do zmiennej
         n_probek = X.shape[0]
-
-
 
         # stworzenie  macierzy zer, która posłuży do zapisywania ogległości między próbkami
         macierz_odleglosci = np.zeros((n_probek, n_probek))
@@ -40,19 +40,15 @@ class RBF_SFM_OCC:
         # wektory nosne, deklaracja
         self.wektory_nosne = []
 
-
         for i in range(n_probek):
             self.wektory_nosne.append(X[i])
 
         # Liczba wektorow nosnych
         n_wektor_nosne = len(self.wektory_nosne)
 
-
         # wektor zerowy o wymiarach liczby wektorow nosnych
-
         # https://stats.stackexchange.com/questions/592273/how-to-understand-the-dual-coef-parameter-in-sklearns-kernel-svm
         self.dual_coef = np.zeros(n_wektor_nosne)
-
 
         # w macierzy wektorów nośych dla kazdego wiersza dodajemy wszystkie kolumny ze soba
         for i in range(n_wektor_nosne):
@@ -63,14 +59,10 @@ class RBF_SFM_OCC:
 
         self.przesuniecie = np.mean(np.dot(self.dual_coef, macierz_funkcji_rbf))
 
-
-
-
     def predict(self, X):
 
         # lista y_predict
         y_pred = []
-
 
         for i in range(X.shape[0]):
             pred = 0
@@ -80,9 +72,8 @@ class RBF_SFM_OCC:
             for j in range(len(self.wektory_nosne)):
                 pred += self.dual_coef[j] * np.exp(-self.gamma * np.linalg.norm(X[i] - self.wektory_nosne[j]) ** 2)
 
-            # wartosc pred jest korygowana o przesuniecie
+            # wartosc pred jest korygowana o przesuniecie (ale ujemne ???)
             pred -= self.przesuniecie
-
 
             # jesli wartosc pred jest wieksza od 0 do listy y_pred dodawana jest wartosc 1
             if pred > 0:
@@ -112,8 +103,12 @@ gammas = [0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 2, 3]
 wynikiWlasny = np.zeros(shape=[len(gammas), rskf.get_n_splits()])
 wynikiSklearn = np.zeros(shape=[len(gammas), rskf.get_n_splits()])
 
+fig, ax = plt.subplots(len(gammas), 2, figsize=(len(gammas)*2, len(gammas)*3))
+fig.suptitle("Wyniki dla własnego SVM")
+fig.tight_layout(pad=5)
 
-# Wyniki accuracy
+# Wyniki accuracy dla różnych gamma, dla własnego SVM i OneClassSVM
+
 for i,gamma in enumerate(gammas):
 
     for j, (train_index, test_index) in enumerate(rskf.split(X, y)):
@@ -124,18 +119,33 @@ for i,gamma in enumerate(gammas):
         y_pred = clf.predict(X[test_index])
         wynikiWlasny[i,j]=accuracy_score(y[test_index], y_pred)
 
+        ax[i, 0].scatter(X[train_index][:, 0], X[test_index][:, 1], c=y[test_index])
+        ax[i, 0].scatter(X[train_index][:, 2], X[test_index][:, 3], c=y[test_index])
+        ax[i, 0].set_title("Test (gamma = "+ str(gamma)+")")
+        ax[i, 1].scatter(X[train_index][:, 0], X[test_index][:, 1], c=y_pred)
+        ax[i, 1].scatter(X[train_index][:, 2], X[test_index][:, 3], c=y_pred)
+        ax[i, 1].set_title("Predykcja (gamma = "+ str(gamma)+")")
+
+    tekst = "Accuracy_score = " + str(np.round(np.mean(wynikiWlasny[i,:]), 3))
+    ax[i, 1].text(0.03, 0.8, tekst, transform=ax[i, 1].transAxes)
+
+
     for j, (train_index, test_index) in enumerate(rskf.split(X, y)):
         clf = OneClassSVM(kernel='rbf', gamma=gamma)
         clf.fit(X[train_index])
         y_pred = clf.predict(X[test_index])
         wynikiSklearn[i, j] = accuracy_score(y[test_index], y_pred)
 
+plt.savefig("Wykres.png")
+plt.close()
 
+# Wyznaczanie średnich dla każdej wartości gamma
 meanWlasny = np.mean(wynikiWlasny, axis=1)
 stdWlasny = np.std(wynikiWlasny, axis=1, )
 meanSklearn = np.mean(wynikiSklearn, axis=1)
 stdSklearn = np.std(wynikiSklearn, axis=1)
 
+# Testy na innych klasyfikatorach
 clfs = {
 "DTC": DecisionTreeClassifier(),
 "SVM_Linear": OneClassSVM(kernel="linear"),
@@ -144,6 +154,8 @@ clfs = {
 
 scores = np.zeros((len(clfs), 2 * 5))
 
+
+
 for fold_id, (train_index, test_index) in enumerate(rskf.split(X, y)):
     for clf_id, clf_name in enumerate(clfs):
         clf = clfs[clf_name]
@@ -151,22 +163,64 @@ for fold_id, (train_index, test_index) in enumerate(rskf.split(X, y)):
         y_pred = clf.predict(X[test_index])
         scores[clf_id, fold_id] = accuracy_score(y[test_index], y_pred)
 
+
+
+
+# Wybór najlepszego wyniku zależnego od gammy dla własnego SVM i OneClassSVM
+wiersz_z_naj_srednia = [0 ,0]
+for i in range(wynikiWlasny.shape[0]):
+    if i == 0:
+        najwieksza_srednia = np.mean(wynikiWlasny[i,:], axis=0)
+        najwieksza_srednia_OneClassSVM = np.mean(wynikiSklearn[i, :], axis=0)
+    else:
+        x = np.mean(wynikiWlasny[i,:], axis=0)
+        if najwieksza_srednia <= x:
+            najwieksza_srednia = x
+            wiersz_z_naj_srednia[0] = i
+        y = np.mean(wynikiSklearn[i, :], axis=0)
+        if najwieksza_srednia_OneClassSVM <= y:
+            najwieksza_srednia_OneClassSVM = y
+            wiersz_z_naj_srednia[1] = i
+
+scores = np.vstack((scores, wynikiWlasny[wiersz_z_naj_srednia[0]], wynikiSklearn[wiersz_z_naj_srednia[1]]))
+
+# Zmienne do testów t studenta
+t_statystki = np.zeros((scores.shape[0],scores.shape[0]))
+p = t_statystki.copy()
+istot_statyst = np.zeros(t_statystki.shape).astype(bool)
+przewaga = istot_statyst.copy()
+alpha = 0.05
+
+# Test tstudenta
+for i in range(scores.shape[0]):
+    for j in range(scores.shape[0]):
+        t_statystki[i, j], p[i, j] = stats.ttest_rel(scores[i, :], scores[j, :])
+        if np.mean(scores[i,:]) > np.mean(scores[j,:]): przewaga[i, j] = True
+        if p[i, j] < alpha: istot_statyst[i, j] = True
+
+przewaga_istot_statyst = przewaga * istot_statyst
+
+with open('ttstudent_wyniki.csv', 'w') as plik:
+    plik.write("Macierz t_statystki:\n")
+    plik.write(tabulate(t_statystki, headers=["DTC","SVM_Linear","SVM_Poly","SVM_wlasny","OneClassSVM"], floatfmt=".8f"))
+    plik.write("\n\nMacierz p:\n")
+    plik.write(tabulate(p, headers=["DTC", "SVM_Linear", "SVM_Poly", "SVM_wlasny", "OneClassSVM"]))
+    plik.write("\n\nMacierz przewagi (accuracy_score):\n")
+    plik.write(tabulate(przewaga, headers=["DTC", "SVM_Linear", "SVM_Poly", "SVM_wlasny", "OneClassSVM"]))
+    plik.write("\n\nIstotność statystyczna:\n")
+    plik.write(tabulate(istot_statyst, headers=["DTC", "SVM_Linear", "SVM_Poly", "SVM_wlasny", "OneClassSVM"]))
+    plik.write("\n\nPrzewaga istotna statystycznie:\n")
+    plik.write(tabulate(przewaga_istot_statyst, headers=["DTC", "SVM_Linear", "SVM_Poly", "SVM_wlasny", "OneClassSVM"]))
+
 mean_scores = np.mean(scores, axis=1)
 std_scores = np.std(scores, axis=1)
 
 plik = "wyniki.csv"
 with open(plik, 'w') as pliczek:
-    pliczek.write("Gamma," + str(gammas) + '\n')
-    pliczek.write("Mean OneClassSVM-RBF(Wlasny)," + str(meanWlasny) + '\n')
-    pliczek.write("Std OneClassSVM-RBF(Wlasny)," + str(np.round(stdWlasny, 3)) + '\n')
-    pliczek.write("Mean OneClassSVM-RBF(Sklearn)," + str(meanSklearn) + '\n')
-    pliczek.write("Std OneClassSVM-RBF(Sklearn)," + str(np.round(stdSklearn, 3)) + '\n')
-    pliczek.write("Mean DTC(Sklearn)," + str(np.round(mean_scores[0], 3)) + '\n')
-    pliczek.write("Std DTC(Sklearn)," + str(np.round(std_scores[0], 3)) + '\n')
-    pliczek.write("Mean SVM_Linear(Sklearn)," + str(np.round(mean_scores[1], 3)) + '\n')
-    pliczek.write("Std SVM_Linear(Sklearn)," + str(np.round(std_scores[1], 3)) + '\n')
-    pliczek.write("Mean SVM_Poly(Sklearn)," + str(np.round(mean_scores[2], 3)) + '\n')
-    pliczek.write("Std SVM_Poly(Sklearn)," + str(np.round(std_scores[2], 3)) + '\n')
+    pliczek.write(tabulate(np.vstack((gammas,meanWlasny,np.round(stdWlasny, 3),meanSklearn,np.round(stdSklearn, 3))).T,headers=["Gamma","Mean (Wlasny SVM)", "Std (Wlasny SVM)","Mean (Sklearn)","Std (Sklearn)"]))
+    pliczek.write("\n\nMean(std) DTC(Sklearn)\t\t\t" + str(np.round(mean_scores[0], 3)) + "(" + str(np.round(std_scores[0], 3)) + ")"+ '\n')
+    pliczek.write("Mean(std) SVM_Linear(Sklearn)\t" + str(np.round(mean_scores[1], 3)) + "(" + str(np.round(std_scores[1], 3)) + ")"+ '\n')
+    pliczek.write("Mean(std) SVM_Poly(Sklearn)\t\t" + str(np.round(mean_scores[2], 3)) + "(" + str(np.round(std_scores[2], 3)) + ")"+ '\n')
 
 # # zbiór testowy syntetyczny
 # X, y = make_circles(1000, factor=.1, noise=.1)
