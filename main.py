@@ -104,8 +104,9 @@ wynikiWlasny = np.zeros(shape=[len(gammas), rskf.get_n_splits()])
 wynikiSklearn = np.zeros(shape=[len(gammas), rskf.get_n_splits()])
 
 fig, ax = plt.subplots(len(gammas), 2, figsize=(len(gammas)*2, len(gammas)*3))
+fig.tight_layout(pad=6)
 fig.suptitle("Wyniki dla własnego SVM")
-fig.tight_layout(pad=5)
+
 
 # Wyniki accuracy dla różnych gamma, dla własnego SVM i OneClassSVM
 
@@ -134,7 +135,7 @@ for i,gamma in enumerate(gammas):
         clf = OneClassSVM(kernel='rbf', gamma=gamma)
         clf.fit(X[train_index])
         y_pred = clf.predict(X[test_index])
-        wynikiSklearn[i, j] = accuracy_score(y[test_index], y_pred)
+        wynikiSklearn[i, j] = 1-accuracy_score(y[test_index], y_pred)
 
 plt.savefig("Wykres.png")
 plt.close()
@@ -273,3 +274,6 @@ with open(plik, 'w') as pliczek:
 # print("y_pred",y_pred)
 # print("accuracy: ",accuracy)
 
+
+#t-sne
+#pca
